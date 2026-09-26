@@ -1,0 +1,266 @@
+#!/bin/sh
+set -eu
+
+APPDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+DATA_HOME=${XDG_DATA_HOME:-"$HOME/.local/share"}
+DATA_DIR="$DATA_HOME/empire-earth-gog-private-test"
+GAME_DIR="$DATA_DIR/game"
+PREFIX_DIR="$DATA_DIR/prefix"
+DEFAULT_RESOLUTION=1280x720
+
+usage() {
+  printf 'Usage: %s [--base|--aoc] [--deck|--720p|--1080p|--resolution WIDTHxHEIGHT] [--init-only|--check|--help]\n' "$0"
+}
+
+mode=base
+resolution=
+explicit_resolution=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --base) mode=base ;;
+    --aoc) mode=aoc ;;
+    --deck) resolution=1280x800; explicit_resolution=1 ;;
+    --720p) resolution=1280x720; explicit_resolution=1 ;;
+    --1080p) resolution=1920x1080; explicit_resolution=1 ;;
+    --resolution)
+      shift
+      [ "$#" -gt 0 ] || { usage >&2; exit 2; }
+      resolution=$1
+      explicit_resolution=1 ;;
+    --init-only) mode=init ;;
+    --check)
+      test -f "$APPDIR/game/Empire Earth/Empire Earth.exe"
+      test -f "$APPDIR/game/Empire Earth - The Art of Conquest/EE-AOC.exe"
+      test -x "$APPDIR/runner/bin/wine"
+      printf 'Payload and Wine runner present.\n'
+      exit 0 ;;
+    --help|-h) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
+  esac
+  shift
+done
+
+if [ "$explicit_resolution" -eq 1 ]; then
+  case "$resolution" in
+    *x*) width=${resolution%x*}; height=${resolution#*x} ;;
+    *) printf 'Resolution must be WIDTHxHEIGHT.\n' >&2; exit 2 ;;
+  esac
+  case "$width" in
+    ''|*[!0-9]*) printf 'Resolution must use whole numbers.\n' >&2; exit 2 ;;
+  esac
+  case "$height" in
+    ''|*[!0-9]*) printf 'Resolution must use whole numbers.\n' >&2; exit 2 ;;
+  esac
+  if [ "$width" -lt 800 ] || [ "$height" -lt 600 ] ||
+     [ "$width" -gt 1920 ] || [ "$height" -gt 1200 ]; then
+    printf 'Supported resolution range is 800x600 through 1920x1200.\n' >&2
+    exit 2
+  fi
+fi
+
+mkdir -p "$DATA_DIR"
+LOCK_DIR="$DATA_DIR/.initializing.lock"
+if ! mkdir "$LOCK_DIR" 2>/dev/null; then
+  if [ -r "$LOCK_DIR/pid" ] && kill -0 "$(cat "$LOCK_DIR/pid")" 2>/dev/null; then
+    printf 'Another Empire Earth initialization is in progress.\n' >&2
+    exit 75
+  fi
+  rm -rf "$LOCK_DIR"
+  mkdir "$LOCK_DIR" || exit 75
+fi
+printf '%s\n' "$$" > "$LOCK_DIR/pid"
+for stale in "$DATA_DIR"/.game.new.* "$DATA_DIR"/.prefix.new.*; do
+  [ -e "$stale" ] && rm -rf "$stale"
+done
+trap 'rm -rf "$LOCK_DIR"' EXIT HUP INT TERM
+
+if [ ! -f "$GAME_DIR/Empire Earth/Empire Earth.exe" ] ||
+   [ ! -f "$GAME_DIR/Empire Earth - The Art of Conquest/EE-AOC.exe" ]; then
+  stage="$DATA_DIR/.game.new.$$"
+  mkdir "$stage"
+  cp -a "$APPDIR/game/." "$stage/"
+  chmod -R u+rwX "$stage"
+  if [ -e "$GAME_DIR" ]; then
+    mv "$GAME_DIR" "$DATA_DIR/game.interrupted.$(date +%s)"
+  fi
+  mv "$stage" "$GAME_DIR"
+fi
+
+# Keep an existing private game copy in sync with the tested D3D9 bridge.
+for directory in "Empire Earth" "Empire Earth - The Art of Conquest"; do
+  cp "$APPDIR/dxvk/d3d9.dll" "$GAME_DIR/$directory/d3d9.dll"
+done
+
+setup_env() {
+  export WINEPREFIX="$PREFIX_DIR" WINEARCH=win32
+  export WINELOADER="$APPDIR/runner/bin/wine"
+  export WINESERVER="$APPDIR/runner/bin/wineserver"
+  export PATH="$APPDIR/runner/bin:$PATH"
+  export LD_LIBRARY_PATH="$APPDIR/runtime32/pulseaudio:$APPDIR/runtime32:$APPDIR/runner/lib32:$APPDIR/runner/lib:$APPDIR/runner/lib32/wine/i386-unix${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  export WINEDLLPATH="$APPDIR/runner/lib/wine:$APPDIR/runner/lib32/wine"
+  export FONTCONFIG_PATH="$APPDIR/runtime32/etc/fonts"
+  export WINEDLLOVERRIDES="winemenubuilder=;mscoree=;ddraw=n,b;d3d9=n,b;dmband=n,b;dmcompos=n,b;dmime=n,b;dmloader=n,b;dmscript=n,b;dmstyle=n,b;dmsynth=n,b;dmusic=n,b;dswave=n,b"
+  export WINE_LARGE_ADDRESS_AWARE=1
+}
+
+if [ ! -f "$PREFIX_DIR/system.reg" ]; then
+  stage="$DATA_DIR/.prefix.new.$$"
+  mkdir "$stage"
+  PREFIX_DIR="$stage"
+  setup_env
+  "$APPDIR/runner/bin/wineboot" -u
+  "$APPDIR/runner/bin/wineserver" -w
+  mkdir -p "$stage/drive_c/GOG Games"
+  ln -s "$GAME_DIR" "$stage/drive_c/GOG Games/Empire Earth Gold"
+  if [ -e "$DATA_DIR/prefix" ]; then
+    mv "$DATA_DIR/prefix" "$DATA_DIR/prefix.interrupted.$(date +%s)"
+  fi
+  mv "$stage" "$DATA_DIR/prefix"
+  PREFIX_DIR="$DATA_DIR/prefix"
+fi
+
+# These DLLs came from the user's local Microsoft DirectX redistributable CAB.
+for name in dmband dmcompos dmime dmloader dmscript dmstyle dmsynth dmusic dswave; do
+  cp "$APPDIR/directmusic/$name.dll" "$PREFIX_DIR/drive_c/windows/system32/$name.dll"
+done
+
+setup_env
+# Follow HP1's Mint/Deck audio choice when the user's Wine prefix has no
+# explicit driver preference.
+if [ -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse/native" ] &&
+   ! "$APPDIR/runner/bin/wine" reg query 'HKCU\Software\Wine\Drivers' /v Audio >/dev/null 2>&1; then
+  "$APPDIR/runner/bin/wine" reg add 'HKCU\Software\Wine\Drivers' /v Audio /t REG_SZ /d pulse /f >/dev/null
+fi
+
+# The GOG releases store video size separately for the base game and expansion.
+# Set a readable default once; an explicit preset can update both later.
+resolution_marker="$DATA_DIR/resolution-profile"
+if [ "$explicit_resolution" -eq 1 ] || [ ! -f "$resolution_marker" ]; then
+  [ -n "$resolution" ] || resolution=$DEFAULT_RESOLUTION
+  width=${resolution%x*}
+  height=${resolution#*x}
+  for key in 'HKCU\Software\SSSI\Empire Earth' 'HKCU\Software\Mad Doc Software\EE-AOC'; do
+    "$APPDIR/runner/bin/wine" reg add "$key" /v 'Game Window Width' /t REG_DWORD /d "$width" /f >/dev/null
+    "$APPDIR/runner/bin/wine" reg add "$key" /v 'Game Window Height' /t REG_DWORD /d "$height" /f >/dev/null
+  done
+  # The verified GOG ddraw wrapper has a separate display config. Its stock
+  # desktop/windowed defaults ignored the game's 1280x720 registry setting.
+  for directory in 'Empire Earth' 'Empire Earth - The Art of Conquest'; do
+    config="$GAME_DIR/$directory/dxcfg.ini"
+    [ -f "$config" ] || { printf 'GOG display config is missing: %s\n' "$config" >&2; exit 78; }
+    sed -i "s/^display=.*/display=$resolution@60/;s/^presentation=.*/presentation=fullscreen/" "$config"
+  done
+  printf '%s\n' "$resolution" > "$resolution_marker"
+fi
+
+rm -rf "$LOCK_DIR"
+trap - EXIT HUP INT TERM
+
+if [ "$mode" = init ]; then
+  printf 'Wine prefix initialized at %s\n' "$PREFIX_DIR"
+  exit 0
+fi
+
+# DXVK needs the active GPU's 32-bit Vulkan driver. Reuse the same
+# host/Flatpak lookup approach as the HP1 launcher, without bundling a driver.
+if [ -z "${VK_DRIVER_FILES:-}" ]; then
+  GPU_VENDOR=
+  for status in /sys/class/drm/card*-*/status; do
+    [ -r "$status" ] && [ "$(cat "$status")" = connected ] || continue
+    card=$(basename "$(dirname "$status")" | cut -d- -f1)
+    vendor="/sys/class/drm/$card/device/vendor"
+    [ -r "$vendor" ] && { GPU_VENDOR=$(cat "$vendor"); break; }
+  done
+  if [ -z "$GPU_VENDOR" ]; then
+    for vendor in /sys/class/drm/card*/device/vendor; do
+      [ -r "$vendor" ] && { GPU_VENDOR=$(cat "$vendor"); break; }
+    done
+  fi
+  case "$GPU_VENDOR" in
+    0x10de) GPU_FAMILY=nvidia ;;
+    0x1002) GPU_FAMILY=amd ;;
+    0x8086) GPU_FAMILY=intel ;;
+    *) printf 'Cannot identify active GPU for 32-bit Vulkan.\n' >&2; exit 78 ;;
+  esac
+  is_elf32() { [ "$(od -An -j4 -N1 -t u1 "$1" 2>/dev/null | tr -d ' ')" = 1 ]; }
+  find_icd() {
+    root=$1
+    for json in "$root"/vulkan/icd.d/*.json; do
+      [ -f "$json" ] || continue
+      name=$(basename "$json")
+      case "$GPU_FAMILY:$name" in
+        nvidia:*nvidia*|amd:*radeon*|amd:*amd*|intel:*intel*) ;;
+        *) continue ;;
+      esac
+      lib=$(sed -n 's/.*"library_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$json" | head -n 1)
+      [ -n "$lib" ] || continue
+      case "$lib" in /*) candidate=$lib ;; *) candidate="$root/lib/$lib" ;; esac
+      candidate=$(readlink -f "$candidate" 2>/dev/null || true)
+      [ -f "$candidate" ] && is_elf32 "$candidate" || continue
+      ICD_LIBRARY=$candidate
+      return 0
+    done
+    return 1
+  }
+  ICD_LIBRARY=
+  # Mint typically keeps distro ICD manifests in /usr/share or /etc.
+  for jsondir in /usr/share/vulkan/icd.d /etc/vulkan/icd.d; do
+    [ -d "$jsondir" ] || continue
+    for json in "$jsondir"/*.json; do
+      [ -f "$json" ] || continue
+      name=$(basename "$json")
+      case "$GPU_FAMILY:$name" in
+        nvidia:*nvidia*|amd:*radeon*|amd:*amd*|intel:*intel*) ;;
+        *) continue ;;
+      esac
+      lib=$(sed -n 's/.*"library_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$json" | head -n 1)
+      [ -n "$lib" ] && [ -f "$lib" ] && is_elf32 "$lib" || continue
+      ICD_LIBRARY=$(readlink -f "$lib")
+      break 2
+    done
+  done
+  if [ -z "$ICD_LIBRARY" ]; then
+    for root in /usr /usr/local; do
+      [ -d "$root" ] && find_icd "$root" && break
+    done
+  fi
+  if [ -z "$ICD_LIBRARY" ]; then
+    version=$(sed -n 's/.*Kernel Module[[:space:]][[:space:]]*\([0-9][^ ]*\).*/\1/p' /proc/driver/nvidia/version 2>/dev/null | head -n 1 || true)
+    for flatpak in "$HOME/.local/share/flatpak/runtime" /var/lib/flatpak/runtime; do
+      [ -d "$flatpak" ] || continue
+      if [ "$GPU_FAMILY" = nvidia ]; then
+        [ -n "$version" ] || continue
+        id="org.freedesktop.Platform.GL32.nvidia-$(printf '%s' "$version" | tr . -)"
+      else
+        id=org.freedesktop.Platform.GL32.default
+      fi
+      for root in "$flatpak/$id"/*/*/active/files; do
+        [ -d "$root" ] && find_icd "$root" && break 2
+      done
+    done
+  fi
+  if [ -z "$ICD_LIBRARY" ] && [ "$GPU_FAMILY" = intel ] &&
+     [ -f "$APPDIR/graphics/libvulkan_intel.so" ] &&
+     is_elf32 "$APPDIR/graphics/libvulkan_intel.so"; then
+    ICD_LIBRARY="$APPDIR/graphics/libvulkan_intel.so"
+  fi
+  [ -n "$ICD_LIBRARY" ] || { printf 'No matching 32-bit Vulkan driver found for %s.\n' "$GPU_FAMILY" >&2; exit 78; }
+  mkdir -p "$PREFIX_DIR/cache/vulkan"
+  ICD_JSON="$PREFIX_DIR/cache/vulkan/host-icd.json"
+  printf '{"file_format_version":"1.0.0","ICD":{"library_path":"%s","api_version":"1.3.0"}}\n' "$ICD_LIBRARY" > "$ICD_JSON"
+  export VK_DRIVER_FILES="$ICD_JSON" VK_ICD_FILENAMES="$ICD_JSON"
+  LD_LIBRARY_PATH="$(dirname "$ICD_LIBRARY"):$LD_LIBRARY_PATH"
+  export LD_LIBRARY_PATH
+fi
+
+if [ -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse/native" ]; then
+  [ -r "$APPDIR/runtime32/libpulse.so.0" ] || { printf 'Bundled 32-bit PulseAudio client is missing.\n' >&2; exit 78; }
+  export LD_PRELOAD="$APPDIR/runtime32/libpulse.so.0${LD_PRELOAD:+:$LD_PRELOAD}"
+fi
+
+if [ "$mode" = aoc ]; then
+  cd "$GAME_DIR/Empire Earth - The Art of Conquest"
+  exec "$APPDIR/runner/bin/wine" start /wait /unix "$PWD/EE-AOC.exe"
+fi
+cd "$GAME_DIR/Empire Earth"
+exec "$APPDIR/runner/bin/wine" start /wait /unix "$PWD/Empire Earth.exe"

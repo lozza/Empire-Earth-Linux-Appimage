@@ -1,0 +1,14 @@
+[package]
+name = "empire-earth-builder-gui"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+build = "build.rs"
+
+[workspace]
+
+[dependencies]
+slint = { version = "=1.13.1", default-features = false, features = ["std", "compat-1-2", "renderer-femtovg", "backend-winit"] }
+
+[build-dependencies]
+slint-build = "=1.13.1"

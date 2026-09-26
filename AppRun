@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+APPDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+export EE_BUILDER_DIR="$APPDIR"
+case "${1:-}" in
+  '') exec "$APPDIR/usr/bin/empire-earth-builder-gui" ;;
+  --build) shift; exec "$APPDIR/build-game.sh" "$@" ;;
+  --check)
+    test -x "$APPDIR/build-game.sh"
+    test -x "$APPDIR/tools/innoextract/innoextract"
+    test -f "$APPDIR/tools/magic.mgc"
+    printf 'Builder tools present.\n' ;;
+  --help|-h)
+    printf 'Double-click for the builder window.\nCommand line: %s --build GOG_INSTALLER DIRECTMUSIC_CAB OUTPUT_FOLDER [720p|deck|1080p]\n' "$0" ;;
+  *) printf 'Unknown option. Use --help.\n' >&2; exit 2 ;;
+esac

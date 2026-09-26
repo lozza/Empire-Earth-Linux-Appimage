@@ -1,0 +1,58 @@
+import { Button, ComboBox, LineEdit, VerticalBox, HorizontalBox, ProgressIndicator, ScrollView } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    title: "Empire Earth Gold — Private AppImage Builder";
+    width: 760px; height: 660px;
+    in-out property <bool> building: false;
+    in-out property <bool> choosing: false;
+    in-out property <bool> backing-up: false;
+    in-out property <bool> build-finished: false;
+    in-out property <bool> build-failed: false;
+    in-out property <float> progress-value: 0;
+    in-out property <string> installer-path: "";
+    in-out property <string> directmusic-path: "";
+    in-out property <string> output-path: "";
+    in-out property <string> status-text: "Choose your GOG installer, DirectMusic CAB, and an output folder.";
+    in-out property <string> diagnostic-text: "Build messages will appear here.";
+    callback browse-installer();
+    callback browse-directmusic();
+    callback browse-output();
+    callback request-build(string, string, string, int);
+    callback request-backup(string);
+    VerticalBox {
+        padding: 20px; spacing: 12px;
+        Text { text: "Empire Earth Gold Edition — AppImage Builder"; font-size: 22px; wrap: word-wrap; }
+        Text { text: "Build a private Linux AppImage from your own GOG installer and DirectMusic CAB. First build needs internet for about 95 MB of verified Wine, DXVK and AppImage tools. Flatpak may also download two 32-bit components that use about 840 MB installed. Downloads are cached."; wrap: word-wrap; }
+        Text { text: "GOG installer (.exe)"; font-weight: 700; }
+        HorizontalBox {
+            LineEdit { text <=> root.installer-path; placeholder-text: "/path/to/setup_empire_earth_gold.exe"; enabled: !building && !choosing && !backing-up; }
+            Button { text: "Browse…"; enabled: !building && !choosing && !backing-up; clicked => { browse-installer(); } }
+        }
+        Text { text: "DirectMusic dxnt.cab or extracted DLL folder"; font-weight: 700; }
+        HorizontalBox {
+            LineEdit { text <=> root.directmusic-path; placeholder-text: "/path/to/dxnt.cab"; enabled: !building && !choosing && !backing-up; }
+            Button { text: "Browse…"; enabled: !building && !choosing && !backing-up; clicked => { browse-directmusic(); } }
+        }
+        Text { text: "Output folder"; font-weight: 700; }
+        HorizontalBox {
+            LineEdit { text <=> root.output-path; placeholder-text: "/path/to/output-folder"; enabled: !building && !choosing && !backing-up; }
+            Button { text: "Browse…"; enabled: !building && !choosing && !backing-up; clicked => { browse-output(); } }
+        }
+        Text { text: "Starting resolution"; font-weight: 700; }
+        choice := ComboBox {
+            model: ["1280×720 — recommended for Steam Deck", "1280×800 — Deck screen", "1920×1080"];
+            current-index: 0;
+            enabled: !building && !backing-up;
+        }
+        Text { text: "Your later in-game resolution choice is kept when you rebuild."; wrap: word-wrap; font-size: 12px; }
+        Text { text: build-finished ? "✓ BUILD COMPLETE" : build-failed ? "✗ BUILD FAILED" : backing-up ? "BACKING UP…" : building ? "BUILDING…" : "READY"; font-size: 20px; font-weight: 700; color: build-finished ? #5ad683 : build-failed ? #ff8c8c : #f1c96d; }
+        Text { text: status-text; wrap: word-wrap; }
+        ProgressIndicator { progress: progress-value; }
+        HorizontalBox {
+            Button { text: building ? "Building…" : "Build AppImage"; enabled: !building && !choosing && !backing-up; clicked => { request-build(root.installer-path, root.directmusic-path, root.output-path, choice.current-index); } }
+            Button { text: backing-up ? "Backing up…" : "Back up saves and settings"; enabled: !building && !choosing && !backing-up; clicked => { request-backup(root.output-path); } }
+        }
+        Text { text: "Build log is also saved as empire-earth-builder.log in the output folder."; font-size: 12px; }
+        ScrollView { height: 150px; Text { text: diagnostic-text; wrap: word-wrap; } }
+    }
+}

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Empire Earth Gold AppImage Builder
+Exec=empire-earth-builder
+Icon=empire-earth
+Categories=Utility;Game;
+Terminal=false

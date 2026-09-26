@@ -1,0 +1,43 @@
+Empire Earth Gold Edition Builder — generated private game component record
+
+This AppImage contains Empire Earth files from the user's verified GOG installer
+and DirectMusic DLLs from the user's separate local CAB or DLL folder. It is
+for personal use only. Do not upload or redistribute the generated AppImage.
+
+Soda Wine 9.0-1 (runner)
+Archive: https://github.com/bottlesdevs/wine/releases/download/soda-9.0-1/soda-9.0-1-x86_64.tar.xz
+Archive SHA-256: c38fe0ad3c12a49b61ec1fcaea5c5d8da4a3d1afc5991befe2af6b125f014c28
+The archive's LICENSE is retained at runner/LICENSE. Wine is
+LGPL-2.1-or-later; this private artifact is not a redistribution-ready Wine
+binary package. Release and build recipe: https://github.com/bottlesdevs/wine
+
+DXVK 2.7.1-6-fc848a4 (32-bit d3d9.dll)
+Archive: https://github.com/bottlesdevs/components/releases/download/dxvk-2.7.1-6-fc848a4/dxvk-2.7.1-6-fc848a4.tar.gz
+Archive SHA-256: 96a78de1cbe2275c9325d8a69212d9f742d5e48b3507c6f3ad684d1a186c389f
+Component source: https://github.com/bottlesdevs/components/blob/main/dxvk/dxvk-2.7.1-6-fc848a4.yml
+Upstream source: https://github.com/doitsujin/dxvk/tree/fc848a41
+Licence text: licenses/DXVK-LICENSE
+
+Freedesktop Platform Compat.i386 24.08 (selected 32-bit libraries)
+Ref: runtime/org.freedesktop.Platform.Compat.i386/x86_64/24.08
+Commit: 88db92773b8ed6b2f712eb7e41be3568f20e408e68f610c06c27d843fd7e4e63
+Source: https://gitlab.com/freedesktop-sdk/freedesktop-sdk
+The host supplies its matched 32-bit glibc and loader. Only non-glibc
+compatibility libraries are retained in this private AppImage.
+
+Mesa Intel Vulkan fallback (32-bit libvulkan_intel.so)
+Ref: runtime/org.freedesktop.Platform.GL32.default/x86_64/25.08
+Commit: 7e1d4739a4c4f25468727c89669b18f1318064a8f9213697f38b802e2f64c114
+SHA-256: 00cc1d3252bc83222368ee2534cfc5c0d56d7438fa76defde7cbb9e60c1145b9
+Source: https://gitlab.freedesktop.org/mesa/mesa
+Licences from the pinned Flatpak extension: licenses/Mesa/
+This fallback covers Intel only; AMD and NVIDIA use a matching host driver.
+
+AppImage type-2 runtime
+Runtime SHA-256: 4448aff037fa32788d2fb8ac9a10bd9688cd95ffcebbda05d1962278d0fa8c47
+Source: https://github.com/AppImage/type2-runtime
+License text: licenses/type2-runtime-LICENSE
+
+Microsoft DirectMusic DLLs
+The nine DLLs were supplied by the user and checked against hashes in the
+builder's directmusic.sha256. They are not included in the public builder.
