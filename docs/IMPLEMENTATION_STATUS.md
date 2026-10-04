@@ -1,6 +1,6 @@
 # Empire Earth builder implementation status
 
-## Current release candidate — v0.1.0-beta.2
+## Current release — v0.1.0-beta.2
 
 The public beta.2 package is the exact tested r7 builder, renamed to
 `Empire-Earth-Builder-x86_64.AppImage`: 8,550,904 bytes, SHA-256
@@ -359,3 +359,22 @@ checksum, with matching source; never publish a generated game or mod binary.
   Logs, private games and candidates are retained in ignored verification data.
   No GitHub release or generated game upload was made. Mint/Deck, expansion
   camera behavior and repeated gameplay recovery still require testing.
+
+## Milestone 14 — public beta.2 publication (2026-10-04)
+
+- Published [v0.1.0-beta.2](https://github.com/lozza/Empire-Earth-Linux-Appimage/releases/tag/v0.1.0-beta.2)
+  as a pre-release, with matching source commit
+  `c20dccfa598816b9611257e2a858f839045b2ac8`.
+- Uploaded only `Empire-Earth-Builder-x86_64.AppImage` and its `.sha256`.
+  Downloaded both live assets again and checked size, checksum-file contents
+  and byte-for-byte equality with the tested local builder. Live builder:
+  8,550,904 bytes, SHA-256
+  `7c2e0d5675e20799741ea1ca995a2759d720071b94c856411952f32b181d3f51`.
+  The tag resolves to the matching source commit. Commercial game content,
+  generated private games and mod binaries were not uploaded.
+- Updated README, changelog, implementation status and release notes. Marked
+  beta.1 superseded with a beta.2 link, retaining its original artifact/history.
+  Test claims retain unresolved Mint graphics and unverified Deck behaviour.
+- Verification metadata and downloaded copies are retained privately in
+  `wow64-verification/github-beta2-download/`. This milestone changes
+  documentation only; the released artifact and tag remain unchanged.
