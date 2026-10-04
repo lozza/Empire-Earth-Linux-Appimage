@@ -25,3 +25,12 @@
 /resolution-dxvk-logs/
 /dependency-inspect/
 /exact-candidate-output/
+
+/mint-followup-output/
+/mint-followup-xdg/
+/mint-candidate/
+/wow64-candidate/
+/wow64-final-output/
+/wow64-r3-output/
+
+/wow64-verification/

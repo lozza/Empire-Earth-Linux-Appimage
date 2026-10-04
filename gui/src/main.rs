@@ -27,12 +27,21 @@ fn main() -> Result<(), slint::PlatformError> {
     let weak = ui.as_weak();
     ui.on_browse_output(move || browse(weak.clone(), 2));
     let weak = ui.as_weak();
-    ui.on_request_build(move |installer, directmusic, output, profile_index| {
+    ui.on_browse_camera(move || browse(weak.clone(), 3));
+    let weak = ui.as_weak();
+    ui.on_request_build(move |installer, directmusic, output, profile_index, camera_index, camera_path| {
         let Some(window) = weak.upgrade() else { return };
         if window.get_building() || window.get_choosing() || window.get_backing_up() { return; }
         let installer = PathBuf::from(installer.trim().to_string());
         let directmusic = PathBuf::from(directmusic.trim().to_string());
         let output = PathBuf::from(output.trim().to_string());
+        let wider_camera = camera_index == 1;
+        let camera_path = PathBuf::from(camera_path.trim().to_string());
+        if wider_camera && !camera_path.is_file() {
+            window.set_build_failed(true);
+            window.set_status_text("Choose your own dreXmod 2.01 ZIP, or select Original camera.".into());
+            return;
+        }
         if !installer.is_file() || !directmusic.exists() || !output.is_absolute() {
             window.set_build_failed(true);
             window.set_status_text("Choose the GOG installer, a DirectMusic CAB or DLL folder, and a full output-folder path.".into());
@@ -55,6 +64,8 @@ fn main() -> Result<(), slint::PlatformError> {
                 .arg("-c").arg("exec \"$@\" 2>&1").arg("builder")
                 .arg(appdir.join("build-game.sh"))
                 .arg(&installer).arg(&directmusic).arg(&output).arg(profile)
+                .arg(if wider_camera { "on" } else { "off" })
+                .arg(if wider_camera { camera_path.as_os_str() } else { std::ffi::OsStr::new("") })
                 .stdout(Stdio::piped()).stderr(Stdio::null()).spawn();
             let mut lines = String::new();
             let status = match result {
@@ -149,7 +160,7 @@ fn show_line(weak: &slint::Weak<MainWindow>, line: &str, lines: &str) {
     let _ = slint::invoke_from_event_loop(move || {
         if let Some(window) = weak.upgrade() {
             window.set_status_text(line.clone().into());
-            let progress = if line.starts_with("Downloading verified soda") { 0.08 }
+            let progress = if line.starts_with("Downloading verified wine") { 0.08 }
                 else if line.starts_with("Downloading verified dxvk") { 0.18 }
                 else if line.starts_with("Downloading verified appimagetool") { 0.28 }
                 else if line.starts_with("Installing pinned") { 0.38 }
@@ -178,6 +189,7 @@ fn browse(weak: slint::Weak<MainWindow>, kind: u8) {
                         match kind {
                             0 => window.set_installer_path(path.into()),
                             1 => window.set_directmusic_path(path.into()),
+                            3 => window.set_camera_path(path.into()),
                             _ => window.set_output_path(path.into()),
                         }
                         window.set_status_text("Selection ready.".into());
@@ -203,12 +215,14 @@ fn pick_path(kind: u8) -> Result<Option<String>, String> {
         match kind {
             0 => { command.args(["--getopenfilename", &start, "*.exe|GOG installers"]); }
             1 => { command.args(["--getopenfilename", &start, "*.cab|DirectMusic CAB"]); }
+            3 => { command.args(["--getopenfilename", &start, "*.zip|dreXmod 2.01 ZIP"]); }
             _ => { command.args(["--getexistingdirectory", &start]); }
         }
     } else {
         match kind {
             0 => { command.args(["--file-selection", "--title=Choose GOG installer", "--filename", &start]); }
             1 => { command.args(["--file-selection", "--title=Choose DirectMusic CAB", "--filename", &start]); }
+            3 => { command.args(["--file-selection", "--title=Choose your dreXmod 2.01 ZIP", "--filename", &start, "--file-filter=ZIP archives | *.zip"]); }
             _ => { command.args(["--file-selection", "--directory", "--title=Choose output folder", "--filename", &start]); }
         }
     }

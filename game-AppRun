@@ -1,24 +1,33 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -eu
 
 APPDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 DATA_HOME=${XDG_DATA_HOME:-"$HOME/.local/share"}
 DATA_DIR="$DATA_HOME/empire-earth-gog-private-test"
 GAME_DIR="$DATA_DIR/game"
-PREFIX_DIR="$DATA_DIR/prefix"
+PREFIX_DIR="$DATA_DIR/prefix-wow64-v11"
 DEFAULT_RESOLUTION=1280x720
+DEFAULT_CAMERA=off
 
 usage() {
-  printf 'Usage: %s [--base|--aoc] [--deck|--720p|--1080p|--resolution WIDTHxHEIGHT] [--init-only|--check|--help]\n' "$0"
+  printf 'Usage: %s [--base|--aoc] [--deck|--720p|--1080p|--resolution WIDTHxHEIGHT] [--camera|--no-camera] [--windowed|--fullscreen] [--opengl|--init-only|--check|--help]\n' "$0"
 }
 
 mode=base
+renderer=dxvk
+camera=$DEFAULT_CAMERA
+presentation=
 resolution=
 explicit_resolution=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --base) mode=base ;;
+    --opengl) renderer=opengl ;;
     --aoc) mode=aoc ;;
+    --camera) camera=on ;;
+    --no-camera) camera=off ;;
+    --windowed) presentation=windowed ;;
+    --fullscreen) presentation=fullscreen ;;
     --deck) resolution=1280x800; explicit_resolution=1 ;;
     --720p) resolution=1280x720; explicit_resolution=1 ;;
     --1080p) resolution=1920x1080; explicit_resolution=1 ;;
@@ -58,7 +67,14 @@ if [ "$explicit_resolution" -eq 1 ]; then
   fi
 fi
 
-mkdir -p "$DATA_DIR"
+mkdir -p "$DATA_DIR/logs" "$DATA_DIR/cache"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$DATA_DIR/cache}"
+LOG_FILE="$DATA_DIR/logs/launch-$(date -u +%Y%m%dT%H%M%SZ)-$$.log"
+ln -sfn "$(basename "$LOG_FILE")" "$DATA_DIR/logs/latest.log"
+# Preserve terminal output while recording errors from double-click launches.
+exec > >(tee "$LOG_FILE") 2>&1
+printf 'Empire Earth launch: %s\nLog: %s\n' "$(date -u)" "$LOG_FILE"
+export VK_LOADER_DEBUG="${VK_LOADER_DEBUG:-error,warn,driver}"
 LOCK_DIR="$DATA_DIR/.initializing.lock"
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   if [ -r "$LOCK_DIR/pid" ] && kill -0 "$(cat "$LOCK_DIR/pid")" 2>/dev/null; then
@@ -69,7 +85,7 @@ if ! mkdir "$LOCK_DIR" 2>/dev/null; then
   mkdir "$LOCK_DIR" || exit 75
 fi
 printf '%s\n' "$$" > "$LOCK_DIR/pid"
-for stale in "$DATA_DIR"/.game.new.* "$DATA_DIR"/.prefix.new.*; do
+for stale in "$DATA_DIR"/.game.new.* "$DATA_DIR"/.prefix-wow64.new.*; do
   [ -e "$stale" ] && rm -rf "$stale"
 done
 trap 'rm -rf "$LOCK_DIR"' EXIT HUP INT TERM
@@ -92,19 +108,24 @@ for directory in "Empire Earth" "Empire Earth - The Art of Conquest"; do
 done
 
 setup_env() {
-  export WINEPREFIX="$PREFIX_DIR" WINEARCH=win32
+  export WINEPREFIX="$PREFIX_DIR" WINEARCH=win64
   export WINELOADER="$APPDIR/runner/bin/wine"
   export WINESERVER="$APPDIR/runner/bin/wineserver"
   export PATH="$APPDIR/runner/bin:$PATH"
-  export LD_LIBRARY_PATH="$APPDIR/runtime32/pulseaudio:$APPDIR/runtime32:$APPDIR/runner/lib32:$APPDIR/runner/lib:$APPDIR/runner/lib32/wine/i386-unix${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-  export WINEDLLPATH="$APPDIR/runner/lib/wine:$APPDIR/runner/lib32/wine"
-  export FONTCONFIG_PATH="$APPDIR/runtime32/etc/fonts"
+  # Match the host's 64-bit graphics dependencies; bundled common libraries
+  # cover absent dependencies. Pulse's private common library stays paired.
+  export LD_LIBRARY_PATH="$APPDIR/runtime64/pulseaudio:/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu:/usr/lib64:/lib64:$APPDIR/runtime64:$APPDIR/runner/lib:$APPDIR/runner/lib/wine/x86_64-unix${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  export WINEDLLPATH="$APPDIR/runner/lib/wine"
+  export FONTCONFIG_PATH="$APPDIR/runtime64/etc/fonts"
   export WINEDLLOVERRIDES="winemenubuilder=;mscoree=;ddraw=n,b;d3d9=n,b;dmband=n,b;dmcompos=n,b;dmime=n,b;dmloader=n,b;dmscript=n,b;dmstyle=n,b;dmsynth=n,b;dmusic=n,b;dswave=n,b"
+  if [ "$renderer" = opengl ]; then
+    export WINEDLLOVERRIDES="$WINEDLLOVERRIDES;d3d9=b;winevulkan="
+  fi
   export WINE_LARGE_ADDRESS_AWARE=1
 }
 
 if [ ! -f "$PREFIX_DIR/system.reg" ]; then
-  stage="$DATA_DIR/.prefix.new.$$"
+  stage="$DATA_DIR/.prefix-wow64.new.$$"
   mkdir "$stage"
   PREFIX_DIR="$stage"
   setup_env
@@ -112,16 +133,28 @@ if [ ! -f "$PREFIX_DIR/system.reg" ]; then
   "$APPDIR/runner/bin/wineserver" -w
   mkdir -p "$stage/drive_c/GOG Games"
   ln -s "$GAME_DIR" "$stage/drive_c/GOG Games/Empire Earth Gold"
-  if [ -e "$DATA_DIR/prefix" ]; then
-    mv "$DATA_DIR/prefix" "$DATA_DIR/prefix.interrupted.$(date +%s)"
+  if [ -r "$DATA_DIR/prefix/user.reg" ]; then
+    awk -f "$APPDIR/migrate-settings.awk" "$DATA_DIR/prefix/user.reg" > "$stage/game-settings.reg"
+    "$APPDIR/runner/bin/wine" reg import "$stage/game-settings.reg"
+    "$APPDIR/runner/bin/wineserver" -w
+    rm -f "$stage/game-settings.reg"
   fi
-  mv "$stage" "$DATA_DIR/prefix"
-  PREFIX_DIR="$DATA_DIR/prefix"
+  ln -s "$GAME_DIR" "$stage/dosdevices/g:"
+  rm -f "$stage/dosdevices/z:"
+  if [ -e "$DATA_DIR/prefix-wow64-v11" ]; then
+    mv "$DATA_DIR/prefix-wow64-v11" "$DATA_DIR/prefix.interrupted.$(date +%s)"
+  fi
+  mv "$stage" "$DATA_DIR/prefix-wow64-v11"
+  PREFIX_DIR="$DATA_DIR/prefix-wow64-v11"
 fi
+
+# Keep the restricted game drive available after interrupted initialization.
+ln -sfn "$GAME_DIR" "$PREFIX_DIR/dosdevices/g:"
+rm -f "$PREFIX_DIR/dosdevices/z:"
 
 # These DLLs came from the user's local Microsoft DirectX redistributable CAB.
 for name in dmband dmcompos dmime dmloader dmscript dmstyle dmsynth dmusic dswave; do
-  cp "$APPDIR/directmusic/$name.dll" "$PREFIX_DIR/drive_c/windows/system32/$name.dll"
+  cp "$APPDIR/directmusic/$name.dll" "$PREFIX_DIR/drive_c/windows/syswow64/$name.dll"
 done
 
 setup_env
@@ -134,7 +167,11 @@ fi
 
 # The GOG releases store video size separately for the base game and expansion.
 # Set a readable default once; an explicit preset can update both later.
-resolution_marker="$DATA_DIR/resolution-profile"
+resolution_marker="$DATA_DIR/resolution-profile-wow64-v11"
+if [ -z "$resolution" ] && [ -r "$DATA_DIR/resolution-profile" ]; then
+  saved=$(cat "$DATA_DIR/resolution-profile")
+  [[ "$saved" =~ ^[0-9]+x[0-9]+$ ]] && resolution=$saved
+fi
 if [ "$explicit_resolution" -eq 1 ] || [ ! -f "$resolution_marker" ]; then
   [ -n "$resolution" ] || resolution=$DEFAULT_RESOLUTION
   width=${resolution%x*}
@@ -148,9 +185,26 @@ if [ "$explicit_resolution" -eq 1 ] || [ ! -f "$resolution_marker" ]; then
   for directory in 'Empire Earth' 'Empire Earth - The Art of Conquest'; do
     config="$GAME_DIR/$directory/dxcfg.ini"
     [ -f "$config" ] || { printf 'GOG display config is missing: %s\n' "$config" >&2; exit 78; }
-    sed -i "s/^display=.*/display=$resolution@60/;s/^presentation=.*/presentation=fullscreen/" "$config"
+    sed -i "s/^display=.*/display=desktop/;s/^presentation=.*/presentation=${presentation:-windowed}/" "$config"
   done
   printf '%s\n' "$resolution" > "$resolution_marker"
+fi
+
+# Migrate the earlier virtual-desktop presentation without changing game
+# resolution or saves. The wrapper scales game output to the actual monitor.
+if [ ! -f "$DATA_DIR/windowed-wrapper-v3" ] || [ -n "$presentation" ]; then
+  for directory in 'Empire Earth' 'Empire Earth - The Art of Conquest'; do
+    config="$GAME_DIR/$directory/dxcfg.ini"
+    [ -f "$config" ] || { printf 'GOG display config is missing: %s\n' "$config" >&2; exit 78; }
+    sed -i "s/^display=.*/display=desktop/;s/^presentation=.*/presentation=${presentation:-windowed}/" "$config"
+  done
+  touch "$DATA_DIR/windowed-wrapper-v3"
+fi
+
+if [ "$mode" = aoc ]; then
+  bash "$APPDIR/configure-camera.sh" "$APPDIR" "$GAME_DIR/Empire Earth - The Art of Conquest" "$camera"
+else
+  bash "$APPDIR/configure-camera.sh" "$APPDIR" "$GAME_DIR/Empire Earth" "$camera"
 fi
 
 rm -rf "$LOCK_DIR"
@@ -161,9 +215,9 @@ if [ "$mode" = init ]; then
   exit 0
 fi
 
-# DXVK needs the active GPU's 32-bit Vulkan driver. Reuse the same
+# DXVK needs the active GPU's 64-bit Vulkan driver. Reuse the same
 # host/Flatpak lookup approach as the HP1 launcher, without bundling a driver.
-if [ -z "${VK_DRIVER_FILES:-}" ]; then
+if [ "$renderer" = dxvk ] && [ -z "${VK_DRIVER_FILES:-}" ]; then
   GPU_VENDOR=
   for status in /sys/class/drm/card*-*/status; do
     [ -r "$status" ] && [ "$(cat "$status")" = connected ] || continue
@@ -176,48 +230,51 @@ if [ -z "${VK_DRIVER_FILES:-}" ]; then
       [ -r "$vendor" ] && { GPU_VENDOR=$(cat "$vendor"); break; }
     done
   fi
+  GPU_DRIVER=$(basename "$(readlink -f "${vendor%/vendor}/driver" 2>/dev/null || true)")
   case "$GPU_VENDOR" in
     0x10de) GPU_FAMILY=nvidia ;;
     0x1002) GPU_FAMILY=amd ;;
     0x8086) GPU_FAMILY=intel ;;
-    *) printf 'Cannot identify active GPU for 32-bit Vulkan.\n' >&2; exit 78 ;;
+    *) printf 'Cannot identify active GPU for 64-bit Vulkan.\n' >&2; exit 78 ;;
   esac
-  is_elf32() { [ "$(od -An -j4 -N1 -t u1 "$1" 2>/dev/null | tr -d ' ')" = 1 ]; }
-  find_icd() {
-    root=$1
-    for json in "$root"/vulkan/icd.d/*.json; do
-      [ -f "$json" ] || continue
-      name=$(basename "$json")
-      case "$GPU_FAMILY:$name" in
-        nvidia:*nvidia*|amd:*radeon*|amd:*amd*|intel:*intel*) ;;
-        *) continue ;;
-      esac
-      lib=$(sed -n 's/.*"library_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$json" | head -n 1)
-      [ -n "$lib" ] || continue
-      case "$lib" in /*) candidate=$lib ;; *) candidate="$root/lib/$lib" ;; esac
-      candidate=$(readlink -f "$candidate" 2>/dev/null || true)
-      [ -f "$candidate" ] && is_elf32 "$candidate" || continue
-      ICD_LIBRARY=$candidate
+  is_elf64() { [ "$(od -An -j4 -N1 -t u1 "$1" 2>/dev/null | tr -d ' ')" = 2 ]; }
+  # Resolve manifests both on a native distro and outside a Flatpak sandbox.
+  # Flatpak manifests contain /usr paths that do not exist on the host.
+  resolve_icd() {
+    json=$1
+    root=$2
+    name=$(basename "$json")
+    if [ "$GPU_FAMILY" = nvidia ] && [ "$GPU_DRIVER" = nouveau ]; then
+      case "$name" in *nouveau*) ;; *) return 1 ;; esac
+    else
+    case "$GPU_FAMILY:$name" in
+      nvidia:*nvidia*|amd:*radeon*|amd:*amd*|intel:*intel*) ;;
+      *) return 1 ;;
+    esac
+    fi
+    lib=$(sed -n 's/.*"library_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$json" | head -n 1)
+    [ -n "$lib" ] || return 1
+    jsondir=$(dirname "$json")
+    for candidate in "$lib" "$jsondir/$lib" "$root/lib/$(basename "$lib")" "$root/lib64/$(basename "$lib")" \
+      "$root/lib/x86_64-linux-gnu/$lib" "$root/lib64/$lib" \
+      "$root/lib/$lib"; do
+      [ -f "$candidate" ] && is_elf64 "$candidate" || continue
+      ICD_LIBRARY=$(readlink -f "$candidate")
       return 0
     done
     return 1
   }
-  ICD_LIBRARY=
-  # Mint typically keeps distro ICD manifests in /usr/share or /etc.
-  for jsondir in /usr/share/vulkan/icd.d /etc/vulkan/icd.d; do
-    [ -d "$jsondir" ] || continue
-    for json in "$jsondir"/*.json; do
-      [ -f "$json" ] || continue
-      name=$(basename "$json")
-      case "$GPU_FAMILY:$name" in
-        nvidia:*nvidia*|amd:*radeon*|amd:*amd*|intel:*intel*) ;;
-        *) continue ;;
-      esac
-      lib=$(sed -n 's/.*"library_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$json" | head -n 1)
-      [ -n "$lib" ] && [ -f "$lib" ] && is_elf32 "$lib" || continue
-      ICD_LIBRARY=$(readlink -f "$lib")
-      break 2
+  find_icd() {
+    root=$1
+    for json in "$root"/share/vulkan/icd.d/*.json \
+      "$root"/lib/vulkan/icd.d/*.json "$root"/vulkan/icd.d/*.json; do
+      [ -f "$json" ] && resolve_icd "$json" "$root" && return 0
     done
+    return 1
+  }
+  ICD_LIBRARY=
+  for json in /etc/vulkan/icd.d/*.json; do
+    [ -f "$json" ] && resolve_icd "$json" /usr && break
   done
   if [ -z "$ICD_LIBRARY" ]; then
     for root in /usr /usr/local; do
@@ -230,37 +287,37 @@ if [ -z "${VK_DRIVER_FILES:-}" ]; then
       [ -d "$flatpak" ] || continue
       if [ "$GPU_FAMILY" = nvidia ]; then
         [ -n "$version" ] || continue
-        id="org.freedesktop.Platform.GL32.nvidia-$(printf '%s' "$version" | tr . -)"
+        id="org.freedesktop.Platform.GL.nvidia-$(printf '%s' "$version" | tr . -)"
       else
-        id=org.freedesktop.Platform.GL32.default
+        id=org.freedesktop.Platform.GL.default
       fi
       for root in "$flatpak/$id"/*/*/active/files; do
         [ -d "$root" ] && find_icd "$root" && break 2
       done
     done
   fi
-  if [ -z "$ICD_LIBRARY" ] && [ "$GPU_FAMILY" = intel ] &&
-     [ -f "$APPDIR/graphics/libvulkan_intel.so" ] &&
-     is_elf32 "$APPDIR/graphics/libvulkan_intel.so"; then
-    ICD_LIBRARY="$APPDIR/graphics/libvulkan_intel.so"
-  fi
-  [ -n "$ICD_LIBRARY" ] || { printf 'No matching 32-bit Vulkan driver found for %s.\n' "$GPU_FAMILY" >&2; exit 78; }
+  [ -n "$ICD_LIBRARY" ] || { printf 'No matching 64-bit Vulkan driver found for %s. Try --opengl for the experimental OpenGL route.\n' "$GPU_FAMILY" >&2; exit 78; }
+  printf 'GPU: %s (%s)\n64-bit Vulkan driver: %s\n' "$GPU_FAMILY" "$GPU_VENDOR" "$ICD_LIBRARY"
+  sha256sum "$ICD_LIBRARY"
   mkdir -p "$PREFIX_DIR/cache/vulkan"
   ICD_JSON="$PREFIX_DIR/cache/vulkan/host-icd.json"
   printf '{"file_format_version":"1.0.0","ICD":{"library_path":"%s","api_version":"1.3.0"}}\n' "$ICD_LIBRARY" > "$ICD_JSON"
   export VK_DRIVER_FILES="$ICD_JSON" VK_ICD_FILENAMES="$ICD_JSON"
-  LD_LIBRARY_PATH="$(dirname "$ICD_LIBRARY"):$LD_LIBRARY_PATH"
+  # Keep the host graphics dependencies and paired Pulse common library first.
+  LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$(dirname "$ICD_LIBRARY")"
   export LD_LIBRARY_PATH
 fi
 
+printf 'Renderer: %s\n' "$renderer"
+printf 'Vulkan manifest: %s\nLibrary search path: %s\n' "${VK_DRIVER_FILES:-system default}" "$LD_LIBRARY_PATH"
 if [ -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/pulse/native" ]; then
-  [ -r "$APPDIR/runtime32/libpulse.so.0" ] || { printf 'Bundled 32-bit PulseAudio client is missing.\n' >&2; exit 78; }
-  export LD_PRELOAD="$APPDIR/runtime32/libpulse.so.0${LD_PRELOAD:+:$LD_PRELOAD}"
+  [ -r "$APPDIR/runtime64/libpulse.so.0" ] || { printf 'Bundled 64-bit PulseAudio client is missing.\n' >&2; exit 78; }
+  export LD_PRELOAD="$APPDIR/runtime64/libpulse.so.0${LD_PRELOAD:+:$LD_PRELOAD}"
 fi
 
 if [ "$mode" = aoc ]; then
   cd "$GAME_DIR/Empire Earth - The Art of Conquest"
-  exec "$APPDIR/runner/bin/wine" start /wait /unix "$PWD/EE-AOC.exe"
+  exec "$APPDIR/runner/bin/wine" 'G:\Empire Earth - The Art of Conquest\EE-AOC.exe'
 fi
 cd "$GAME_DIR/Empire Earth"
-exec "$APPDIR/runner/bin/wine" start /wait /unix "$PWD/Empire Earth.exe"
+exec "$APPDIR/runner/bin/wine" 'G:\Empire Earth\Empire Earth.exe'

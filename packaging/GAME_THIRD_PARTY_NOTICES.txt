@@ -4,12 +4,14 @@ This AppImage contains Empire Earth files from the user's verified GOG installer
 and DirectMusic DLLs from the user's separate local CAB or DLL folder. It is
 for personal use only. Do not upload or redistribute the generated AppImage.
 
-Soda Wine 9.0-1 (runner)
-Archive: https://github.com/bottlesdevs/wine/releases/download/soda-9.0-1/soda-9.0-1-x86_64.tar.xz
-Archive SHA-256: c38fe0ad3c12a49b61ec1fcaea5c5d8da4a3d1afc5991befe2af6b125f014c28
-The archive's LICENSE is retained at runner/LICENSE. Wine is
-LGPL-2.1-or-later; this private artifact is not a redistribution-ready Wine
-binary package. Release and build recipe: https://github.com/bottlesdevs/wine
+Wine 11.0 WoW64 (Kron4ek vanilla build)
+Archive: https://github.com/Kron4ek/Wine-Builds/releases/download/11.0/wine-11.0-amd64-wow64.tar.xz
+Archive size: 73144724 bytes
+Archive SHA-256: 39574efa1132c3ca0d5c77dd2eddbe4a49cca0d6cc2c290ff4924493a1c40314
+Wine is LGPL-2.1-or-later. Licence: licenses/Wine-LGPL-2.1
+Exact upstream source: https://dl.winehq.org/wine/source/11.0/wine-11.0.tar.xz
+Build recipe: https://github.com/Kron4ek/Wine-Builds/tree/11.0
+No 32-bit Unix Wine processes or libraries are used by this build.
 
 DXVK 2.7.1-6-fc848a4 (32-bit d3d9.dll)
 Archive: https://github.com/bottlesdevs/components/releases/download/dxvk-2.7.1-6-fc848a4/dxvk-2.7.1-6-fc848a4.tar.gz
@@ -18,20 +20,15 @@ Component source: https://github.com/bottlesdevs/components/blob/main/dxvk/dxvk-
 Upstream source: https://github.com/doitsujin/dxvk/tree/fc848a41
 Licence text: licenses/DXVK-LICENSE
 
-Freedesktop Platform Compat.i386 24.08 (selected 32-bit libraries)
-Ref: runtime/org.freedesktop.Platform.Compat.i386/x86_64/24.08
-Commit: 88db92773b8ed6b2f712eb7e41be3568f20e408e68f610c06c27d843fd7e4e63
+Freedesktop Platform 24.08 (selected common 64-bit libraries)
+Ref: runtime/org.freedesktop.Platform/x86_64/24.08
+Commit: 9a6d66049b19987a22bf81015ce0d1fde260df85a45e54695aad3c82f1e198ee
 Source: https://gitlab.com/freedesktop-sdk/freedesktop-sdk
-The host supplies its matched 32-bit glibc and loader. Only non-glibc
-compatibility libraries are retained in this private AppImage.
-
-Mesa Intel Vulkan fallback (32-bit libvulkan_intel.so)
-Ref: runtime/org.freedesktop.Platform.GL32.default/x86_64/25.08
-Commit: 7e1d4739a4c4f25468727c89669b18f1318064a8f9213697f38b802e2f64c114
-SHA-256: 00cc1d3252bc83222368ee2534cfc5c0d56d7438fa76defde7cbb9e60c1145b9
-Source: https://gitlab.freedesktop.org/mesa/mesa
-Licences from the pinned Flatpak extension: licenses/Mesa/
-This fallback covers Intel only; AMD and NVIDIA use a matching host driver.
+Individual component licences: licenses/Runtime64/
+The host supplies its matched 64-bit glibc and loader. Non-glibc common
+compatibility libraries are packaged, including a paired PulseAudio client
+and libpulsecommon. GPU drivers come from the host or a matching local
+64-bit Flatpak GL extension. No GPU driver is copied into this AppImage.
 
 AppImage type-2 runtime
 Runtime SHA-256: 4448aff037fa32788d2fb8ac9a10bd9688cd95ffcebbda05d1962278d0fa8c47
@@ -41,3 +38,13 @@ License text: licenses/type2-runtime-LICENSE
 Microsoft DirectMusic DLLs
 The nine DLLs were supplied by the user and checked against hashes in the
 builder's directmusic.sha256. They are not included in the public builder.
+OPTIONAL CAMERA PATCH
+If dreXmod was selected in the Camera / zoom mod dropdown, this private game
+contains dreXmod 2.01 from the user's local ZIP. Creator/community page:
+https://empireearth.eu/drexmod/
+Archive SHA-256: 97d9fb875f2a96fd0acd27d87e68a83a2b34f9840112a1ebc794ea6bd0537275
+DLL SHA-256: 5464f3db1ee70d442e721e269c523a8d3e59fcb126c249c7fe24ccb23f17844b
+The archive does not provide a public redistribution licence. The user supplies
+it for this private game; the builder does not download or distribute it.
+Do not publicly redistribute this AppImage. The project seeds camera settings
+with zoom limit 20 and disables dreXmod's lobby, HUD and menu features.
