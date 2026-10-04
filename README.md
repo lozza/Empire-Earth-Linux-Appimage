@@ -13,7 +13,7 @@ The original Windows game runs with packaged compatibility software. The game's 
 - **Optional wider camera:** a named mod dropdown lets you select your own local dreXmod ZIP. Original camera is the default; the mod is never downloaded automatically or included in the public builder.
 - **Builder portability:** the GUI is compiled with Freedesktop SDK 24.08, has a checked glibc 2.39 ceiling, and includes its required X11 keyboard libraries.
 
-See the [changelog](CHANGELOG.md) and [recorded implementation milestones](docs/IMPLEMENTATION_STATUS.md) for details. Beta.2 supersedes beta.1, whose generated game failed to launch on Mint. The revised route has been tested on Bazzite; **successful Mint and Steam Deck game launches are still unverified**.
+See the [changelog](CHANGELOG.md) and [recorded implementation milestones](docs/IMPLEMENTATION_STATUS.md) for details. Beta.2 supersedes beta.1, whose generated game failed to launch on Mint. The revised route has been tested on Bazzite, and the user confirms it **works on Steam Deck**. A successful Mint game launch remains unverified.
 
 ## Your local files
 
@@ -51,7 +51,7 @@ The game starts with desktop-size, aspect-preserving windowed presentation. On t
 
 ### Steam Deck
 
-Build in **Desktop Mode**, following the same steps. **1280×720** is a suggested starting preset based on the HP1 portability work. Both that preset and 1280×800 remain unverified for this Empire Earth release on Deck. You can add your generated game AppImage to Steam, but Gaming Mode, controls and first-run behaviour still need direct testing.
+The user reports that the game **works fine on Steam Deck**. Build in **Desktop Mode**, following the same steps, then add your generated game AppImage to Steam if desired. **1280×720** is a suggested starting preset. The report did not specify the tested resolution or Desktop/Gaming Mode, so those details are not recorded.
 
 ### Optional wider camera
 
@@ -81,15 +81,15 @@ The builder writes `empire-earth-builder.log` in the output folder. Game and Vul
 | --- | --- |
 | x86_64 Bazzite, KDE, NVIDIA RTX 3080 | Exact beta.2 builder GUI opened with X11; packaged build completed using cached components and a local mod ZIP. Fresh-prefix and repeat Wine 11 game launches reached the DXVK renderer during development. Desktop scaling was checked with screenshots. The user reports the game works well and confirms the camera effect. One startup minimise/restore test recovered its image. |
 | Linux Mint | Earlier beta.1 built a game but failed at Vulkan instance creation. A Wine 11 live-USB test started the runner but the selected Nouveau driver could not enumerate a GPU. Experimental OpenGL produced audio without an image. A successful graphical game launch with this release is not established. |
-| Steam Deck | This Empire Earth release has not been directly tested. |
+| Steam Deck | User confirms that it works fine on Deck. The report does not specify the artifact hash, resolution, Desktop/Gaming Mode or individual audio/save-load checks. |
 
 The exact beta.2 builder is **8,550,904 bytes**, SHA-256:
 
 `7c2e0d5675e20799741ea1ca995a2759d720071b94c856411952f32b181d3f51`
 
-The packaged GUI's highest referenced glibc version is **2.39**. This ABI check is not proof of Mint or Deck launch success. The current build verification used a populated cache; earlier clean-cache tests belong to beta.1 and do not establish a clean-cache beta.2 build on another platform.
+The packaged GUI's highest referenced glibc version is **2.39**. The Deck result is based on the user's hands-on report; this ABI check alone does not establish platform success. The current build verification used a populated cache; earlier clean-cache tests belong to beta.1 and do not establish a clean-cache beta.2 build on another platform.
 
-Remaining checks include a full audio/control/save-load cycle, repeated minimise/restore during gameplay, expansion camera behaviour, and complete first/second launch tests on Mint and Deck. The Mint live-USB graphics failure is unresolved; it has not been proven to be merely a live-boot limitation. `--opengl` is an experimental WineD3D alternative with unverified hardware rendering and performance.
+Remaining checks include a full audio/control/save-load cycle, repeated minimise/restore during gameplay, expansion camera behaviour, a successful Mint launch, and detailed first/second-launch records for Deck. The Mint live-USB graphics failure is unresolved; it has not been proven to be merely a live-boot limitation. `--opengl` is an experimental WineD3D alternative with unverified hardware rendering and performance.
 
 ## Command line and source builds
 

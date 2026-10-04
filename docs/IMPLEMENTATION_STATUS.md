@@ -10,8 +10,9 @@ summarize current behaviour. Earlier milestones are historical evidence and
 include superseded runners, display settings and private prototypes.
 
 The user authorized publication of the integrated fixes. Bazzite evidence is
-recorded below; successful Mint/Deck launches, a save/load cycle and complete
-repeated gameplay recovery remain unverified. Publish only this builder and its
+recorded below, and the user now confirms that it works on Steam Deck (Milestone
+15). A successful Mint launch, a save/load cycle and complete repeated gameplay
+recovery remain unverified. Publish only this builder and its
 checksum, with matching source; never publish a generated game or mod binary.
 
 
@@ -378,3 +379,15 @@ checksum, with matching source; never publish a generated game or mod binary.
 - Verification metadata and downloaded copies are retained privately in
   `wow64-verification/github-beta2-download/`. This milestone changes
   documentation only; the released artifact and tag remain unchanged.
+
+## Milestone 15 — user-reported Steam Deck success (2026-10-04)
+
+- After the beta.2 release and Nexus description draft, the user reports:
+  "This works fine on deck, btw". Record Steam Deck as working by user report.
+- The report does not specify an artifact hash, operating mode, resolution or
+  separate first/second-launch, audio, controls and save/load observations.
+  Do not turn this report into a claim that every individual check was recorded.
+- Updated the current README, changelog and beta.2 release notes to reflect
+  this new evidence. Earlier milestones describe the status at their dates.
+  No code, release artifact, checksum or tag changes are required. Mint's
+  graphics failure remains unresolved.

@@ -9,7 +9,7 @@
 - Add Camera / zoom mod selection: original camera by default, or explicitly supplied local dreXmod 2.01 ZIP. No automatic mod download or public mod binary. Seed maximum zoom distance 20 and disable unrelated mod features.
 - Make the GUI scrollable, connect local mod browsing, and bundle verified SDK X11 keyboard libraries with their licences. Keep the checked glibc 2.39 ceiling.
 - Clear inherited OWD for nested AppImage packaging, resolving a reproduced packaging-directory failure.
-- Update source/licence notices and distinguish Bazzite evidence from unresolved Mint and untested Deck behaviour.
+- Update source/licence notices and distinguish Bazzite evidence from unresolved Mint behaviour. A subsequent user report confirms the game works on Steam Deck.
 
 Builder: 8,550,904 bytes; SHA-256 `7c2e0d5675e20799741ea1ca995a2759d720071b94c856411952f32b181d3f51`.
 
