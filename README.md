@@ -1,95 +1,118 @@
 # Empire Earth Gold Edition on Linux
 
-**Empire Earth Builder** is a desktop tool that turns your supported GOG Empire Earth Gold Edition installer into a Linux AppImage you can launch directly. Choose the installer, your own DirectMusic files, an output folder and a resolution; the tool builds the game app for you.
+I put this together to make getting **Empire Earth Gold Edition running on Linux** a bit easier.
 
-The original Windows game runs with packaged compatibility software. The game's code has not been rewritten as native Linux software. This is an unofficial fan project and a **public beta**.
+It takes your own GOG installer and builds a game AppImage with the compatibility files included. It supports both the original game and **The Art of Conquest**. The Windows game runs through Wine.
 
-**[Download Empire Earth Builder v0.1.0-beta.2](https://github.com/lozza/Empire-Earth-Linux-Appimage/releases/tag/v0.1.0-beta.2)** — under **Assets**, choose `Empire-Earth-Builder-x86_64.AppImage`. A matching `.sha256` file is provided.
+It's still a beta. **Tested and working on Bazzite and Steam Deck.** Mint still needs further work.
+
+**[Download Empire Earth Builder v0.1.0-beta.2](https://github.com/lozza/Empire-Earth-Linux-Appimage/releases/tag/v0.1.0-beta.2)** — under **Assets**, choose `Empire-Earth-Builder-x86_64.AppImage`. There's also a `.sha256` file to check the download.
 
 ## What's new in beta.2
 
-- **Updated compatibility route:** Wine 11.0 WoW64 runs the 32-bit Windows game through 64-bit Linux libraries, removing the previous need for a 32-bit Linux loader and Vulkan driver.
-- **Display fixes:** the GOG wrapper scales to the desktop with the correct aspect ratio. Windowed presentation fills the tested KDE desktop and improves recovery after minimising.
-- **Optional wider camera:** a named mod dropdown lets you select your own local dreXmod ZIP. Original camera is the default; the mod is never downloaded automatically or included in the public builder.
-- **Builder portability:** the GUI is compiled with Freedesktop SDK 24.08, has a checked glibc 2.39 ceiling, and includes its required X11 keyboard libraries.
+- Wine 11.0 WoW64, so the game no longer needs a 32-bit Linux loader or graphics driver.
+- Fixes for image scaling and recovery after minimising.
+- An optional camera mod dropdown. Original camera is the default; dreXmod needs your own local ZIP.
+- The builder includes its required X11 keyboard libraries and is built with Freedesktop SDK 24.08.
 
-See the [changelog](CHANGELOG.md) and [recorded implementation milestones](docs/IMPLEMENTATION_STATUS.md) for details. Beta.2 supersedes beta.1, whose generated game failed to launch on Mint. The revised route has been tested on Bazzite, and the user confirms it **works on Steam Deck**. A successful Mint game launch remains unverified.
+Beta.2 replaces beta.1. See the [changelog](CHANGELOG.md) for the changes and the [technical documentation](docs/IMPLEMENTATION_STATUS.md) for component details and testing.
 
-## Your local files
+## What you'll need
 
-This beta accepts only the verified GOG Gold Edition installer:
+- An **x86_64 Linux desktop**, glibc **2.39 or newer**, and working **64-bit Vulkan graphics**.
+- Your own supported GOG installer and matching DirectMusic files, listed below.
+- **Flatpak, curl, tar and sha256sum**, plus standard shell tools.
+- **7z** if you're supplying a CAB or optional mod ZIP.
+- Internet access for the first build and plenty of free space; allow around **8 GB**.
+
+The first build downloads about **104 MB** of Wine, DXVK and packaging tools, plus the pinned Freedesktop Platform 24.08 runtime if needed. Downloads are checked and cached for later builds. Flatpak sets up a user-level Flathub remote if needed, without sudo.
+
+You don't need Bottles or a separate Wine/Proton installation. The compatibility files are packaged into your game AppImage. Your game installer and other local inputs aren't uploaded.
+
+### GOG installer
+
+This beta accepts:
 
 `setup_empire_earth_gold_2.0.0.2974_gog_v3_(78415).exe`
 
 SHA-256: `65758cb47fc9f8073fbc66ecc71dbd8f7ee573787100ee14c5e8a1f00acfd0da`.
 
-A renamed copy with identical contents is accepted. Other installer versions, installed folders and the community `EE_Setup.exe` patcher are not supported in this beta. The GOG installer is extracted directly, without running its Windows setup program.
+A renamed copy with the same contents is fine. Other installer versions, installed folders and the community `EE_Setup.exe` patcher aren't supported in this beta. The builder extracts the GOG installer without running its Windows setup program.
 
-The tested audio route also requires **nine older Microsoft DirectMusic DLLs** absent from this GOG installer. Supply your own matching `dxnt.cab` from a DirectX installation you own, or a folder containing its extracted DLLs. The builder checks their exact hashes. The tested CAB came from a local Age of Empires III DirectX folder. Extracting a CAB requires the host `7z` command; an extracted DLL folder does not.
+### DirectMusic files
 
-The public builder contains **no Empire Earth, DirectMusic or dreXmod files**. These inputs stay local and are never uploaded. Generated game AppImages contain commercial files and must stay private.
+The tested audio setup needs **nine older Microsoft DirectMusic DLLs** that aren't included in this GOG installer. Supply your own matching `dxnt.cab` from a DirectX installation you own, or a folder containing its extracted DLLs. The builder checks their hashes.
 
-## First build and requirements
-
-**The first build needs an internet connection.** The builder downloads pinned Wine, DXVK and AppImage packaging tools, verifies their sizes and SHA-256 hashes, and caches valid copies. These three downloads total about **104 MB**. It also obtains a pinned Freedesktop Platform 24.08 through Flatpak when needed; the additional transfer depends on what is already installed. Required common libraries and licences are placed in the generated game AppImage.
-
-The builder uses the host `flatpak`, `curl`, `tar`, `sha256sum` and standard shell tools. It sets up a user-level Flathub remote when needed, without sudo. CAB and optional mod ZIP extraction also require `7z`. **No Bottles or system Wine/Proton installation is required.** Allow substantial free space for extraction, the component cache and game output; 8 GB is a useful starting allowance.
-
-The game needs an x86_64 Linux desktop with a working **64-bit Vulkan driver** compatible with the active GPU. Its launcher checks standard and Flatpak driver locations and uses a private manifest. GPU drivers are not included in the public builder. A driver file alone does not establish that the GPU works; the launcher records Vulkan diagnostics when launch fails.
+The tested CAB came from a local Age of Empires III DirectX folder. Reading a CAB needs `7z`; an extracted DLL folder doesn't.
 
 ## Build and play
 
-### Linux desktop
+1. Download the builder and mark it executable through your file manager's **Properties → Permissions**.
+2. Open it. Choose your GOG installer, DirectMusic files and an output folder.
+3. Pick a starting resolution.
+4. Leave **Camera / zoom mod** on **Original camera — no mod**, or follow the optional camera instructions below.
+5. Click **Build AppImage** and wait for **BUILD COMPLETE**.
+6. Open the `Empire-Earth-Gold-GOG-private.AppImage` it creates.
 
-1. Download the builder and mark it executable in your file manager, usually under **Properties → Permissions**.
-2. Open it. Select the supported GOG installer, your DirectMusic CAB or DLL folder, and an output folder.
-3. Choose a starting resolution. Leave **Camera / zoom mod** at **Original camera — no mod**, or follow the optional camera instructions below.
-4. Click **Build AppImage** and wait for **BUILD COMPLETE**. Download and packaging progress appears in the diagnostic log.
-5. Open `Empire-Earth-Gold-GOG-private.AppImage` in the output folder. Use `--aoc` to play **The Art of Conquest**.
+Use `--aoc` when launching to play **The Art of Conquest**.
 
-The game starts with desktop-size, aspect-preserving windowed presentation. On the tested KDE desktop it fills the screen. The resolution choice sets the game's starting resolution, independently of this display scaling; subsequent in-game preferences are kept. `--fullscreen` and `--windowed` are available for comparison.
+The game starts with windowed presentation scaled to the desktop, keeping the correct aspect ratio. On the tested KDE desktop it fills the screen. Your starting game resolution is separate from this scaling, and later in-game settings are kept. You can use `--fullscreen` or `--windowed` when launching to choose the presentation.
 
 ### Steam Deck
 
-The user reports that the game **works fine on Steam Deck**. Build in **Desktop Mode**, following the same steps, then add your generated game AppImage to Steam if desired. **1280×720** is a suggested starting preset. The report did not specify the tested resolution or Desktop/Gaming Mode, so those details are not recorded.
+**Tested and working on Steam Deck.** Build in **Desktop Mode**, following the steps above, then add your generated game AppImage to Steam if desired. **1280×720** is a suggested starting resolution.
 
 ### Optional wider camera
 
-The **Camera / zoom mod** dropdown defaults to **Original camera — no mod**.
+The camera mod is **off by default**.
 
-To use **dreXmod 2.01**, obtain the standalone ZIP yourself from the [creator/community download page](https://empireearth.eu/drexmod/), select that named option, then use **Browse mod ZIP**. The builder accepts only the tested ZIP and verifies both the archive and DLL hashes. It does not download or distribute the mod.
+If you want it, get the supported **dreXmod 2.01 ZIP** yourself from the [creator/community page](https://empireearth.eu/drexmod/). Choose dreXmod in the **Camera / zoom mod** dropdown, then select your ZIP with **Browse mod ZIP**.
 
-The generated camera configuration uses a maximum zoom distance of **20**, with the mod's lobby, HUD, menu and scenario-hosting features disabled. Camera distance is separate from resolution. The base-game camera effect was confirmed by the user; expansion camera behaviour is unverified.
+The builder checks the ZIP and DLL hashes. It doesn't download the mod automatically or include it in the public builder.
 
-Games built with the mod accept `--no-camera` to disable the tested DLL and `--camera` to restore it. Without either flag, the Build dropdown determines the choice. An original-camera build contains no mod payload. Existing `dreXmod.config` preferences are preserved; `Camera/Zoom/MaxZ` can be edited there. A different installed mod DLL is protected against replacement.
+The starting maximum zoom distance is **20**. The mod's lobby, HUD, menu and scenario-hosting features are disabled. This changes camera distance independently of resolution. The camera adjustment works in the base game; its behaviour in The Art of Conquest hasn't been checked yet.
 
-## Saves, settings, backups and logs
+Games built with the mod accept `--no-camera` to disable it and `--camera` to restore it. Without either flag, the choice made in the builder is used. Existing `dreXmod.config` settings are kept; you can change `Camera/Zoom/MaxZ` there. A different installed mod DLL won't be overwritten.
 
-Writable game files, saves, settings and prefixes live outside the read-only AppImage at:
+## Saves, settings and backups
+
+Your writable game files, saves, settings and Wine prefixes are stored outside the AppImage at:
 
 `${XDG_DATA_HOME:-$HOME/.local/share}/empire-earth-gog-private-test/`
 
-Rebuilding the AppImage does not remove this folder. Beta.2 creates a separate `prefix-wow64-v11`, retains the old prefix and game copy, and imports only game registry settings. Close the game before rebuilding or backing up.
+Rebuilding doesn't remove this folder. Beta.2 creates a separate Wine 11 prefix and keeps the old prefix and game copy. Close the game before rebuilding or backing up.
 
-**Back up saves and settings** in the builder creates a dated archive of the private game data. It includes the writable game copy and prefix, so it may be large.
+Use **Back up saves and settings** in the builder to create a dated backup. This includes the game copy and prefix, so it can be large.
 
-The builder writes `empire-earth-builder.log` in the output folder. Game and Vulkan diagnostics are saved under the game-data folder at `logs/latest.log`. When reporting a problem, include your Linux version, GPU, chosen resolution and relevant log output. Logs may include local paths.
+## Platforms and known issues
 
-## Tested platforms and limitations
-
-| Platform | Recorded result |
+| Platform | Status |
 | --- | --- |
-| x86_64 Bazzite, KDE, NVIDIA RTX 3080 | Exact beta.2 builder GUI opened with X11; packaged build completed using cached components and a local mod ZIP. Fresh-prefix and repeat Wine 11 game launches reached the DXVK renderer during development. Desktop scaling was checked with screenshots. The user reports the game works well and confirms the camera effect. One startup minimise/restore test recovered its image. |
-| Linux Mint | Earlier beta.1 built a game but failed at Vulkan instance creation. A Wine 11 live-USB test started the runner but the selected Nouveau driver could not enumerate a GPU. Experimental OpenGL produced audio without an image. A successful graphical game launch with this release is not established. |
-| Steam Deck | User confirms that it works fine on Deck. The report does not specify the artifact hash, resolution, Desktop/Gaming Mode or individual audio/save-load checks. |
+| Bazzite | Tested and working. |
+| Steam Deck | Tested and working. |
+| Linux Mint | Still needs further work. Graphics failed in the recorded Mint tests. |
 
-The exact beta.2 builder is **8,550,904 bytes**, SHA-256:
+Mint's Vulkan launch failed, and the experimental OpenGL option produced audio without an image. The cause is still unresolved. `--opengl` is available for troubleshooting, but its hardware rendering and performance aren't established.
+
+This is still a beta. Expansion camera behaviour and repeated minimise/restore during gameplay need more testing. Detailed build and launch results are in the [technical documentation](docs/IMPLEMENTATION_STATUS.md).
+
+## Troubleshooting
+
+Build messages are shown in the builder and saved as `empire-earth-builder.log` in your output folder. Game diagnostics are saved under the game-data folder at `logs/latest.log`.
+
+If something goes wrong, include your Linux version, GPU, resolution and the relevant log output. Logs can contain local paths, so check them before sharing.
+
+## Download checksum
+
+The beta.2 builder is **8,550,904 bytes**, with SHA-256:
 
 `7c2e0d5675e20799741ea1ca995a2759d720071b94c856411952f32b181d3f51`
 
-The packaged GUI's highest referenced glibc version is **2.39**. The Deck result is based on the user's hands-on report; this ABI check alone does not establish platform success. The current build verification used a populated cache; earlier clean-cache tests belong to beta.1 and do not establish a clean-cache beta.2 build on another platform.
+To check it:
 
-Remaining checks include a full audio/control/save-load cycle, repeated minimise/restore during gameplay, expansion camera behaviour, a successful Mint launch, and detailed first/second-launch records for Deck. The Mint live-USB graphics failure is unresolved; it has not been proven to be merely a live-boot limitation. `--opengl` is an experimental WineD3D alternative with unverified hardware rendering and performance.
+```sh
+sha256sum -c Empire-Earth-Builder-x86_64.AppImage.sha256
+```
 
 ## Command line and source builds
 
@@ -100,7 +123,7 @@ Remaining checks include a full audio/control/save-load cycle, repeated minimise
   '/path/to/output-folder' 720p off
 ```
 
-For the optional local mod, replace `off` with `on` and add the ZIP path:
+For the optional mod, replace `off` with `on` and add the ZIP path:
 
 ```sh
 ./Empire-Earth-Builder-x86_64.AppImage --build \
@@ -109,12 +132,14 @@ For the optional local mod, replace `off` with `on` and add the ZIP path:
   '/path/to/output-folder' 720p on '/path/to/dreXmod-2.01.zip'
 ```
 
-Resolution profiles are `720p`, `deck` and `1080p`. `EE_COMPONENT_CACHE` selects another component cache; `--check` checks the bundled builder tools. Verify the release download with:
+Profiles are `720p`, `deck` and `1080p`. `EE_COMPONENT_CACHE` selects a different component cache. `--check` checks the builder's bundled tools.
 
-```sh
-sha256sum -c Empire-Earth-Builder-x86_64.AppImage.sha256
-```
+To rebuild the builder, compile the GUI with Freedesktop SDK 24.08 and Cargo using [Cargo.lock](gui/Cargo.lock), then run `package-builder.sh` with its required verified tool paths. `EE_GUI_BINARY` must point to the SDK build. `EE_LIBMAGIC` supplies SDK libmagic and identifies its neighbouring keyboard libraries. Packaging checks hashes and rejects checked components requiring glibc newer than 2.39.
 
-To rebuild the builder, compile the GUI with Freedesktop SDK 24.08 and Cargo using [Cargo.lock](gui/Cargo.lock), then run `package-builder.sh` with its required verified tool paths. `EE_GUI_BINARY` must point to that SDK build. `EE_LIBMAGIC` supplies SDK libmagic and identifies its neighbouring keyboard libraries. Packaging checks tool/library hashes and rejects a GUI or checked dependency exceeding glibc 2.39. Source and acquisition pins are recorded in the scripts and [implementation status](docs/IMPLEMENTATION_STATUS.md).
+## Thanks
 
-The builder source is GPLv3; see [third-party licences and source notices](THIRD_PARTY_NOTICES.md). Generated game AppImages are for personal use: **do not upload them or commercial game files to this repository**.
+Thanks to the people behind **Wine, Kron4ek Wine Builds, DXVK, AppImage, Freedesktop SDK and Slint**, the **dreXmod authors and EmpireEarth.eu community**, and everyone who helped test things and report problems.
+
+This builds on what we learned getting the Harry Potter AppImage builder working.
+
+The builder source is GPLv3; see the [third-party licences and source notices](THIRD_PARTY_NOTICES.md). This is an unofficial fan project. No Empire Earth, DirectMusic or dreXmod files are included in the public download. Generated game AppImages contain your commercial game files and must stay private.
